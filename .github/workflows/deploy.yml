@@ -1,0 +1,53 @@
+name: Deploy
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy to server
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SERVER: ${{ secrets.SERVER }}
+          USERNAME: ${{ secrets.USERNAME }}
+        run: |
+          # Start SSH agent
+          eval "$(ssh-agent -s)"
+
+          # Load SSH private key
+          echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+
+          # Execute commands on the server
+          ssh -o StrictHostKeyChecking=no "$USERNAME@$SERVER" << 'EOF'
+            # Navigate to the project directory
+            cd ~/naimix-hackathon || exit
+          
+            export PATH=$PATH:/home/myuser/go/bin:/usr/local/go/bin
+
+            git fetch origin
+            git reset --hard origin/main
+
+            cd ./backend
+
+            # Run migrations (здесь мы используем переменную окружения)
+            make migrate-up | sed 's|postgresql://[^"]*|postgresql://***REMOVED***|g'
+            
+            # Generate documentation
+            make swag
+            
+            # Build the project
+            make build
+
+            # Stop the existing application if running
+            pkill main || true
+            
+            # Start the new application
+            nohup ./bin/main > /dev/null 2>&1 &
+          EOF

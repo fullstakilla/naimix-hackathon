@@ -1,0 +1,58 @@
+name: Go CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout the code from the repository
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      # Set up Go
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: "1.22.1"
+
+      # Install dependencies in the backend directory
+      - name: Install dependencies in backend
+        run: |
+          cd backend
+          go mod tidy
+
+      # Install golint
+      - name: Install golint
+        run: |
+          cd backend
+          go install golang.org/x/lint/golint@latest
+
+      # Run go vet in the backend directory
+      - name: Run go vet
+        run: |
+          cd backend
+          go vet ./...
+
+      # Run golint in the backend directory
+      - name: Run golint
+        run: |
+          cd backend
+          golint ./...
+
+      # Build the project in the backend directory
+      - name: Build the project
+        run: |
+          cd backend
+          go build -v ./...
+
+      # Run tests in the backend directory
+      - name: Run tests
+        run: |
+          cd backend
+          go test ./...
